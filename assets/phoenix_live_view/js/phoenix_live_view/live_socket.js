@@ -319,14 +319,10 @@ export default class LiveSocket {
   }
 
   requestDOMUpdate(callback){
-    console.log(`[LivePortal Debug] requestDOMUpdate() called`)
     this.transitions.after(() => {
-      console.log(`[LivePortal Debug] DOM update callback executing`)
       try {
         callback()
-        console.log(`[LivePortal Debug] DOM update callback completed successfully`)
       } catch (error) {
-        console.error(`[LivePortal Debug] DOM update callback failed:`, error)
         throw error
       }
     })

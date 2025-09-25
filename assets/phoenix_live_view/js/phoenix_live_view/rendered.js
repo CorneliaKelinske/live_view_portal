@@ -135,18 +135,14 @@ export default class Rendered {
   parentViewId(){ return this.viewId }
 
   toString(onlyCids){
-    console.log(`[LivePortal Debug] toString() called with onlyCids:`, onlyCids, 'rendered:', this.rendered)
     let [str, streams] = this.recursiveToString(this.rendered, this.rendered[COMPONENTS], onlyCids, true, {})
-    console.log(`[LivePortal Debug] toString() result - length: ${str?.length || 0}`)
     return [str, streams]
   }
 
   recursiveToString(rendered, components = rendered[COMPONENTS], onlyCids, changeTracking, rootAttrs){
-    console.log(`[LivePortal Debug] recursiveToString() called - rendered:`, rendered, 'components:', components)
     onlyCids = onlyCids ? new Set(onlyCids) : null
     let output = {buffer: "", components: components, onlyCids: onlyCids, streams: new Set()}
     this.toOutputBuffer(rendered, null, output, changeTracking, rootAttrs)
-    console.log(`[LivePortal Debug] recursiveToString() final buffer length: ${output.buffer?.length || 0}`, 'buffer:', output.buffer?.substring(0, 100))
     return [output.buffer, output.streams]
   }
 
@@ -284,20 +280,15 @@ export default class Rendered {
   isNewFingerprint(diff = {}){ return !!diff[STATIC] }
 
   templateStatic(part, templates){
-    console.log(`[LivePortal Debug] templateStatic called - part:`, part, 'templates:', templates, 'this.rendered:', Object.keys(this.rendered))
     if(typeof (part) === "number"){
       if(templates && templates[part] !== undefined) {
-        console.log(`[LivePortal Debug] Using templates[${part}]:`, templates[part])
         return templates[part]
       } else {
-        console.log(`[LivePortal Debug] templates[${part}] not found, checking this.rendered.p`)
-        // Check if templates are in the rendered.p (static parts)
+        // Check if templates are in the rendered.p (static parts) - LiveView 1.1 compatibility
         const staticTemplates = this.rendered.p
         if(staticTemplates && staticTemplates[part] !== undefined) {
-          console.log(`[LivePortal Debug] Found in rendered.p[${part}]:`, staticTemplates[part])
           return staticTemplates[part]
         }
-        console.log(`[LivePortal Debug] Template ${part} not resolved, returning as-is`)
         return part
       }
     } else {
@@ -316,15 +307,9 @@ export default class Rendered {
   // It is disabled for comprehensions since we must re-render the entire collection
   // and no individual element is tracked inside the comprehension.
   toOutputBuffer(rendered, templates, output, changeTracking, rootAttrs = {}){
-    console.log(`[LivePortal Debug] toOutputBuffer() called - rendered:`, rendered, 'templates:', templates)
-    if(rendered[DYNAMICS]){
-      console.log(`[LivePortal Debug] Using comprehensionToBuffer`)
-      return this.comprehensionToBuffer(rendered, templates, output)
-    }
+    if(rendered[DYNAMICS]){ return this.comprehensionToBuffer(rendered, templates, output) }
     let {[STATIC]: statics} = rendered
-    console.log(`[LivePortal Debug] Original statics:`, statics)
     statics = this.templateStatic(statics, templates)
-    console.log(`[LivePortal Debug] After templateStatic - statics:`, statics)
     let isRoot = rendered[ROOT]
     let prevBuffer = output.buffer
     if(isRoot){ output.buffer = "" }
@@ -343,9 +328,6 @@ export default class Rendered {
           this.dynamicToBuffer(rendered[i - 1], templates, output, changeTracking)
           output.buffer += statics[i]
         }
-      } else if(typeof statics === 'number'){
-        console.warn(`[LivePortal Debug] statics is a number (${statics}) - this may indicate unresolved template reference`)
-        // Handle numeric template references - this might need different logic
       }
     }
 
@@ -376,28 +358,38 @@ export default class Rendered {
   comprehensionToBuffer(rendered, templates, output){
     let {[DYNAMICS]: dynamics, [STATIC]: statics, [STREAM]: stream} = rendered
     let [_ref, _inserts, deleteIds, reset] = stream || [null, {}, [], null]
+    console.log(`[LivePortal Stream Debug] Processing stream - dynamics length: ${dynamics?.length || 0}, stream:`, !!stream)
     statics = this.templateStatic(statics, templates)
+    console.log(`[LivePortal Stream Debug] After templateStatic - statics type: ${typeof statics}, is array: ${Array.isArray(statics)}`)
     let compTemplates = templates || rendered[TEMPLATES]
     for(let d = 0; d < dynamics.length; d++){
       let dynamic = dynamics[d]
-      if(statics && statics.length > 0){
-        output.buffer += statics[0]
-        for(let i = 1; i < statics.length; i++){
-          // Inside a comprehension, we don't track how dynamics change
-          // over time (and features like streams would make that impossible
-          // unless we move the stream diffing away from morphdom),
-          // so we can't perform root change tracking.
-          let changeTracking = false
-          this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking)
-          output.buffer += statics[i]
+      if(statics){
+        if(Array.isArray(statics) && statics.length > 0){
+          output.buffer += statics[0]
+          for(let i = 1; i < statics.length; i++){
+            // Inside a comprehension, we don't track how dynamics change
+            // over time (and features like streams would make that impossible
+            // unless we move the stream diffing away from morphdom),
+            // so we can't perform root change tracking.
+            let changeTracking = false
+            this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking)
+            output.buffer += statics[i]
+          }
+        } else if(typeof statics === 'number'){
+          console.warn(`[LivePortal Stream Debug] statics is numeric (${statics}) in stream - this may affect stream rendering`)
         }
       }
     }
 
     if(stream !== undefined && (rendered[DYNAMICS].length > 0 || deleteIds.length > 0 || reset)){
+      console.log(`[LivePortal Stream Debug] Adding stream to output - deleteIds: ${deleteIds.length}, reset: ${!!reset}`)
       delete rendered[STREAM]
       rendered[DYNAMICS] = []
       output.streams.add(stream)
+      console.log(`[LivePortal Stream Debug] Stream added - total streams: ${output.streams.size}`)
+    } else if(stream !== undefined) {
+      console.log(`[LivePortal Stream Debug] Stream NOT added - dynamics: ${rendered[DYNAMICS].length}, deleteIds: ${deleteIds.length}, reset: ${!!reset}`)
     }
   }
 

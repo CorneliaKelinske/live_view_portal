@@ -315,16 +315,13 @@ export default class View {
   }
 
   onJoin(resp){
-    console.log(`[LivePortal Debug] onJoin() called - ID: ${this.id}`, resp)
     let {rendered, container, liveview_version} = resp
     if(container){
-      console.log(`[LivePortal Debug] Replacing root container`, container)
       let [tag, attrs] = container
       this.el = DOM.replaceRootContainer(this.el, tag, attrs)
     }
     this.childJoins = 0
     this.joinPending = true
-    console.log(`[LivePortal Debug] Set joinPending = true for ID: ${this.id}`)
     this.flash = null
     if(this.root === this){
       this.formsForRecovery = this.getFormsForRecovery()
@@ -431,29 +428,24 @@ export default class View {
   }
 
   applyJoinPatch(live_patch, html, streams, events){
-    console.log(`[LivePortal Debug] applyJoinPatch() starting - ID: ${this.id}`, {live_patch, hasHtml: !!html})
     this.attachTrueDocEl()
     let patch = new DOMPatch(this, this.el, this.id, html, streams, null)
     patch.markPrunableContentForRemoval()
-    console.log(`[LivePortal Debug] About to performPatch - ID: ${this.id}`)
     this.performPatch(patch, false, true)
     this.joinNewChildren()
     this.execNewMounted()
 
     this.joinPending = false
-    console.log(`[LivePortal Debug] Set joinPending = false - ID: ${this.id}`)
     this.liveSocket.dispatchEvents(events)
     this.applyPendingUpdates()
 
     if(live_patch){
       let {kind, to} = live_patch
-      console.log(`[LivePortal Debug] Applying history patch - kind: ${kind}, to: ${to}`)
       this.liveSocket.historyPatch(to, kind)
     }
     this.hideLoader()
     if(this.joinCount > 1){ this.triggerReconnected() }
     this.stopCallback()
-    console.log(`[LivePortal Debug] applyJoinPatch() completed - ID: ${this.id}`)
   }
 
   triggerBeforeUpdateHook(fromEl, toEl){
@@ -667,17 +659,30 @@ export default class View {
   }
 
   update(diff, events){
+    console.log(`[LivePortal Stream Debug] Update called - diff keys: ${Object.keys(diff)}, events: ${events?.length || 0}`)
+    console.log(`[LivePortal Stream Debug] Full diff:`, diff)
+    console.log(`[LivePortal Stream Debug] Diff structure analysis:`)
+    Object.keys(diff).forEach(key => {
+      console.log(`[LivePortal Stream Debug]   Key "${key}":`, typeof diff[key], diff[key])
+      if (typeof diff[key] === 'object' && diff[key] !== null) {
+        console.log(`[LivePortal Stream Debug]     Object keys:`, Object.keys(diff[key]))
+      }
+    })
     if(this.isJoinPending() || (this.liveSocket.hasPendingLink() && this.root.isMain())){
+      console.log(`[LivePortal Stream Debug] Update deferred - join pending or has pending link`)
       return this.pendingDiffs.push({diff, events})
     }
 
+    console.log(`[LivePortal Stream Debug] Before mergeDiff - rendered structure:`, this.rendered.get())
     this.rendered.mergeDiff(diff)
+    console.log(`[LivePortal Stream Debug] After mergeDiff - rendered structure:`, this.rendered.get())
     let phxChildrenAdded = false
 
     // When the diff only contains component diffs, then walk components
     // and patch only the parent component containers found in the diff.
     // Otherwise, patch entire LV container.
     if(this.rendered.isComponentOnlyDiff(diff)){
+      console.log(`[LivePortal Stream Debug] Component-only diff detected`)
       this.liveSocket.time("component patch complete", () => {
         let parentCids = DOM.findExistingParentCIDs(this.el, this.rendered.componentCIDs(diff))
         parentCids.forEach(parentCID => {
@@ -685,8 +690,10 @@ export default class View {
         })
       })
     } else if(!isEmpty(diff)){
+      console.log(`[LivePortal Stream Debug] Full patch diff detected`)
       this.liveSocket.time("full patch complete", () => {
         let [html, streams] = this.renderContainer(diff, "update")
+        console.log(`[LivePortal Stream Debug] After renderContainer - HTML length: ${html.length}, streams: ${streams.size}`)
         let patch = new DOMPatch(this, this.el, this.id, html, streams, null)
         phxChildrenAdded = this.performPatch(patch, true)
       })
@@ -697,21 +704,15 @@ export default class View {
   }
 
   renderContainer(diff, kind){
-    console.log(`[LivePortal Debug] renderContainer() called - kind: ${kind}, ID: ${this.id}`, {diff})
     return this.liveSocket.time(`toString diff (${kind})`, () => {
       let tag = this.el.tagName
       // Don't skip any component in the diff nor any marked as pruned
       // (as they may have been added back)
       let cids = diff ? this.rendered.componentCIDs(diff) : null
-      console.log(`[LivePortal Debug] Rendering - tag: ${tag}, cids:`, cids)
-      console.log(`[LivePortal Debug] About to call this.rendered.toString() with:`, this.rendered)
       let html, streams
       try {
         [html, streams] = this.rendered.toString(cids)
-        console.log(`[LivePortal Debug] toString() returned - HTML length: ${html?.length || 0}, HTML preview:`, html?.substring(0, 200))
-        console.log(`[LivePortal Debug] toString() returned - streams:`, streams?.size || 0)
       } catch (error) {
-        console.error(`[LivePortal Debug] ERROR in toString():`, error)
         throw error
       }
       return [`<${tag}>${html}</${tag}>`, streams]
@@ -831,11 +832,9 @@ export default class View {
   }
 
   join(callback){
-    console.log(`[LivePortal Debug] View.join() starting - ID: ${this.id}, isDead: ${this.isDead}`)
     this.showLoader(this.liveSocket.loaderTimeout)
     this.bindChannel()
     if(this.isMain()){
-      console.log(`[LivePortal Debug] Main view joining - href: ${this.href}`)
       this.stopCallback = this.liveSocket.withPageLoading({to: this.href, kind: "initial"})
     }
     this.joinCallback = (onDone) => {
@@ -844,18 +843,9 @@ export default class View {
     }
 
     this.wrapPush(() => this.channel.join(), {
-      ok: (resp) => {
-        console.log(`[LivePortal Debug] Join OK received - ID: ${this.id}`, resp)
-        this.liveSocket.requestDOMUpdate(() => this.onJoin(resp))
-      },
-      error: (error) => {
-        console.error(`[LivePortal Debug] Join ERROR - ID: ${this.id}`, error)
-        this.onJoinError(error)
-      },
-      timeout: () => {
-        console.error(`[LivePortal Debug] Join TIMEOUT - ID: ${this.id}`)
-        this.onJoinError({reason: "timeout"})
-      }
+      ok: (resp) => this.liveSocket.requestDOMUpdate(() => this.onJoin(resp)),
+      error: (error) => this.onJoinError(error),
+      timeout: () => this.onJoinError({reason: "timeout"})
     })
   }
 
