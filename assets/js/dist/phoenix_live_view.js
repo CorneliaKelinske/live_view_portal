@@ -2630,7 +2630,9 @@ var Rendered = class {
   // It is disabled for comprehensions since we must re-render the entire collection
   // and no individual element is tracked inside the comprehension.
   toOutputBuffer(rendered, templates, output, changeTracking, rootAttrs = {}) {
+    console.log(`[LivePortal Stream Debug] toOutputBuffer called - rendered keys: ${Object.keys(rendered)}, has DYNAMICS: ${!!rendered[DYNAMICS]}`);
     if (rendered[DYNAMICS]) {
+      console.log(`[LivePortal Stream Debug] Calling comprehensionToBuffer`);
       return this.comprehensionToBuffer(rendered, templates, output);
     }
     let { [STATIC]: statics } = rendered;
