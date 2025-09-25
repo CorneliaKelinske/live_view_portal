@@ -3923,13 +3923,18 @@ var Rendered = class {
     return this.viewId;
   }
   toString(onlyCids) {
+    console.log(`[LivePortal Debug] toString() called with onlyCids:`, onlyCids, "rendered:", this.rendered);
     let [str, streams] = this.recursiveToString(this.rendered, this.rendered[COMPONENTS], onlyCids, true, {});
+    console.log(`[LivePortal Debug] toString() result - length: ${(str == null ? void 0 : str.length) || 0}`);
     return [str, streams];
   }
   recursiveToString(rendered, components = rendered[COMPONENTS], onlyCids, changeTracking, rootAttrs) {
+    var _a, _b;
+    console.log(`[LivePortal Debug] recursiveToString() called - rendered:`, rendered, "components:", components);
     onlyCids = onlyCids ? new Set(onlyCids) : null;
     let output = { buffer: "", components, onlyCids, streams: /* @__PURE__ */ new Set() };
     this.toOutputBuffer(rendered, null, output, changeTracking, rootAttrs);
+    console.log(`[LivePortal Debug] recursiveToString() final buffer length: ${((_a = output.buffer) == null ? void 0 : _a.length) || 0}`, "buffer:", (_b = output.buffer) == null ? void 0 : _b.substring(0, 100));
     return [output.buffer, output.streams];
   }
   componentCIDs(diff) {
@@ -4070,11 +4075,15 @@ var Rendered = class {
   // It is disabled for comprehensions since we must re-render the entire collection
   // and no individual element is tracked inside the comprehension.
   toOutputBuffer(rendered, templates, output, changeTracking, rootAttrs = {}) {
+    console.log(`[LivePortal Debug] toOutputBuffer() called - rendered:`, rendered, "templates:", templates);
     if (rendered[DYNAMICS]) {
+      console.log(`[LivePortal Debug] Using comprehensionToBuffer`);
       return this.comprehensionToBuffer(rendered, templates, output);
     }
     let { [STATIC]: statics } = rendered;
+    console.log(`[LivePortal Debug] Original statics:`, statics);
     statics = this.templateStatic(statics, templates);
+    console.log(`[LivePortal Debug] After templateStatic - statics:`, statics);
     let isRoot = rendered[ROOT];
     let prevBuffer = output.buffer;
     if (isRoot) {
@@ -5005,13 +5014,16 @@ var View = class _View {
     }
   }
   onJoin(resp) {
+    console.log(`[LivePortal Debug] onJoin() called - ID: ${this.id}`, resp);
     let { rendered, container, liveview_version } = resp;
     if (container) {
+      console.log(`[LivePortal Debug] Replacing root container`, container);
       let [tag, attrs] = container;
       this.el = dom_default.replaceRootContainer(this.el, tag, attrs);
     }
     this.childJoins = 0;
     this.joinPending = true;
+    console.log(`[LivePortal Debug] Set joinPending = true for ID: ${this.id}`);
     this.flash = null;
     if (this.root === this) {
       this.formsForRecovery = this.getFormsForRecovery();
@@ -5097,17 +5109,21 @@ var View = class _View {
     });
   }
   applyJoinPatch(live_patch, html, streams, events) {
+    console.log(`[LivePortal Debug] applyJoinPatch() starting - ID: ${this.id}`, { live_patch, hasHtml: !!html });
     this.attachTrueDocEl();
     let patch = new DOMPatch(this, this.el, this.id, html, streams, null);
     patch.markPrunableContentForRemoval();
+    console.log(`[LivePortal Debug] About to performPatch - ID: ${this.id}`);
     this.performPatch(patch, false, true);
     this.joinNewChildren();
     this.execNewMounted();
     this.joinPending = false;
+    console.log(`[LivePortal Debug] Set joinPending = false - ID: ${this.id}`);
     this.liveSocket.dispatchEvents(events);
     this.applyPendingUpdates();
     if (live_patch) {
       let { kind, to } = live_patch;
+      console.log(`[LivePortal Debug] Applying history patch - kind: ${kind}, to: ${to}`);
       this.liveSocket.historyPatch(to, kind);
     }
     this.hideLoader();
@@ -5115,6 +5131,7 @@ var View = class _View {
       this.triggerReconnected();
     }
     this.stopCallback();
+    console.log(`[LivePortal Debug] applyJoinPatch() completed - ID: ${this.id}`);
   }
   triggerBeforeUpdateHook(fromEl, toEl) {
     this.liveSocket.triggerDOM("onBeforeElUpdated", [fromEl, toEl]);
@@ -5320,10 +5337,13 @@ var View = class _View {
     }
   }
   renderContainer(diff, kind) {
+    console.log(`[LivePortal Debug] renderContainer() called - kind: ${kind}, ID: ${this.id}`, { diff });
     return this.liveSocket.time(`toString diff (${kind})`, () => {
       let tag = this.el.tagName;
       let cids = diff ? this.rendered.componentCIDs(diff) : null;
+      console.log(`[LivePortal Debug] Rendering - tag: ${tag}, cids:`, cids);
       let [html, streams] = this.rendered.toString(cids);
+      console.log(`[LivePortal Debug] Rendered HTML length: ${(html == null ? void 0 : html.length) || 0}, streams:`, (streams == null ? void 0 : streams.size) || 0);
       return [`<${tag}>${html}</${tag}>`, streams];
     });
   }
@@ -5432,9 +5452,11 @@ var View = class _View {
     return this.joinPush;
   }
   join(callback) {
+    console.log(`[LivePortal Debug] View.join() starting - ID: ${this.id}, isDead: ${this.isDead}`);
     this.showLoader(this.liveSocket.loaderTimeout);
     this.bindChannel();
     if (this.isMain()) {
+      console.log(`[LivePortal Debug] Main view joining - href: ${this.href}`);
       this.stopCallback = this.liveSocket.withPageLoading({ to: this.href, kind: "initial" });
     }
     this.joinCallback = (onDone) => {
@@ -5443,9 +5465,18 @@ var View = class _View {
       callback ? callback(this.joinCount, onDone) : onDone();
     };
     this.wrapPush(() => this.channel.join(), {
-      ok: (resp) => this.liveSocket.requestDOMUpdate(() => this.onJoin(resp)),
-      error: (error) => this.onJoinError(error),
-      timeout: () => this.onJoinError({ reason: "timeout" })
+      ok: (resp) => {
+        console.log(`[LivePortal Debug] Join OK received - ID: ${this.id}`, resp);
+        this.liveSocket.requestDOMUpdate(() => this.onJoin(resp));
+      },
+      error: (error) => {
+        console.error(`[LivePortal Debug] Join ERROR - ID: ${this.id}`, error);
+        this.onJoinError(error);
+      },
+      timeout: () => {
+        console.error(`[LivePortal Debug] Join TIMEOUT - ID: ${this.id}`);
+        this.onJoinError({ reason: "timeout" });
+      }
     });
   }
   onJoinError(resp) {
@@ -6315,7 +6346,17 @@ var LiveSocket = class {
     }
   }
   requestDOMUpdate(callback) {
-    this.transitions.after(callback);
+    console.log(`[LivePortal Debug] requestDOMUpdate() called`);
+    this.transitions.after(() => {
+      console.log(`[LivePortal Debug] DOM update callback executing`);
+      try {
+        callback();
+        console.log(`[LivePortal Debug] DOM update callback completed successfully`);
+      } catch (error) {
+        console.error(`[LivePortal Debug] DOM update callback failed:`, error);
+        throw error;
+      }
+    });
   }
   transition(time, onStart, onDone = function() {
   }) {

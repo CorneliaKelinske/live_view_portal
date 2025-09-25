@@ -135,14 +135,18 @@ export default class Rendered {
   parentViewId(){ return this.viewId }
 
   toString(onlyCids){
+    console.log(`[LivePortal Debug] toString() called with onlyCids:`, onlyCids, 'rendered:', this.rendered)
     let [str, streams] = this.recursiveToString(this.rendered, this.rendered[COMPONENTS], onlyCids, true, {})
+    console.log(`[LivePortal Debug] toString() result - length: ${str?.length || 0}`)
     return [str, streams]
   }
 
   recursiveToString(rendered, components = rendered[COMPONENTS], onlyCids, changeTracking, rootAttrs){
+    console.log(`[LivePortal Debug] recursiveToString() called - rendered:`, rendered, 'components:', components)
     onlyCids = onlyCids ? new Set(onlyCids) : null
     let output = {buffer: "", components: components, onlyCids: onlyCids, streams: new Set()}
     this.toOutputBuffer(rendered, null, output, changeTracking, rootAttrs)
+    console.log(`[LivePortal Debug] recursiveToString() final buffer length: ${output.buffer?.length || 0}`, 'buffer:', output.buffer?.substring(0, 100))
     return [output.buffer, output.streams]
   }
 
@@ -298,9 +302,15 @@ export default class Rendered {
   // It is disabled for comprehensions since we must re-render the entire collection
   // and no individual element is tracked inside the comprehension.
   toOutputBuffer(rendered, templates, output, changeTracking, rootAttrs = {}){
-    if(rendered[DYNAMICS]){ return this.comprehensionToBuffer(rendered, templates, output) }
+    console.log(`[LivePortal Debug] toOutputBuffer() called - rendered:`, rendered, 'templates:', templates)
+    if(rendered[DYNAMICS]){
+      console.log(`[LivePortal Debug] Using comprehensionToBuffer`)
+      return this.comprehensionToBuffer(rendered, templates, output)
+    }
     let {[STATIC]: statics} = rendered
+    console.log(`[LivePortal Debug] Original statics:`, statics)
     statics = this.templateStatic(statics, templates)
+    console.log(`[LivePortal Debug] After templateStatic - statics:`, statics)
     let isRoot = rendered[ROOT]
     let prevBuffer = output.buffer
     if(isRoot){ output.buffer = "" }
