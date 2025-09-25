@@ -312,10 +312,12 @@ export default class Rendered {
       rendered.magicId = this.nextMagicID()
     }
 
-    output.buffer += statics[0]
-    for(let i = 1; i < statics.length; i++){
-      this.dynamicToBuffer(rendered[i - 1], templates, output, changeTracking)
-      output.buffer += statics[i]
+    if(statics && statics.length > 0){
+      output.buffer += statics[0]
+      for(let i = 1; i < statics.length; i++){
+        this.dynamicToBuffer(rendered[i - 1], templates, output, changeTracking)
+        output.buffer += statics[i]
+      }
     }
 
     // Applies the root tag "skip" optimization if supported, which clears
@@ -349,15 +351,17 @@ export default class Rendered {
     let compTemplates = templates || rendered[TEMPLATES]
     for(let d = 0; d < dynamics.length; d++){
       let dynamic = dynamics[d]
-      output.buffer += statics[0]
-      for(let i = 1; i < statics.length; i++){
-        // Inside a comprehension, we don't track how dynamics change
-        // over time (and features like streams would make that impossible
-        // unless we move the stream diffing away from morphdom),
-        // so we can't perform root change tracking.
-        let changeTracking = false
-        this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking)
-        output.buffer += statics[i]
+      if(statics && statics.length > 0){
+        output.buffer += statics[0]
+        for(let i = 1; i < statics.length; i++){
+          // Inside a comprehension, we don't track how dynamics change
+          // over time (and features like streams would make that impossible
+          // unless we move the stream diffing away from morphdom),
+          // so we can't perform root change tracking.
+          let changeTracking = false
+          this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking)
+          output.buffer += statics[i]
+        }
       }
     }
 

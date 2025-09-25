@@ -4084,10 +4084,12 @@ var Rendered = class {
       rendered.newRender = true;
       rendered.magicId = this.nextMagicID();
     }
-    output.buffer += statics[0];
-    for (let i = 1; i < statics.length; i++) {
-      this.dynamicToBuffer(rendered[i - 1], templates, output, changeTracking);
-      output.buffer += statics[i];
+    if (statics && statics.length > 0) {
+      output.buffer += statics[0];
+      for (let i = 1; i < statics.length; i++) {
+        this.dynamicToBuffer(rendered[i - 1], templates, output, changeTracking);
+        output.buffer += statics[i];
+      }
     }
     if (isRoot) {
       let skip = false;
@@ -4113,11 +4115,13 @@ var Rendered = class {
     let compTemplates = templates || rendered[TEMPLATES];
     for (let d = 0; d < dynamics.length; d++) {
       let dynamic = dynamics[d];
-      output.buffer += statics[0];
-      for (let i = 1; i < statics.length; i++) {
-        let changeTracking = false;
-        this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking);
-        output.buffer += statics[i];
+      if (statics && statics.length > 0) {
+        output.buffer += statics[0];
+        for (let i = 1; i < statics.length; i++) {
+          let changeTracking = false;
+          this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking);
+          output.buffer += statics[i];
+        }
       }
     }
     if (stream !== void 0 && (rendered[DYNAMICS].length > 0 || deleteIds.length > 0 || reset)) {
