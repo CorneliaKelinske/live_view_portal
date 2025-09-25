@@ -2631,13 +2631,10 @@ var Rendered = class {
   // It is disabled for comprehensions since we must re-render the entire collection
   // and no individual element is tracked inside the comprehension.
   toOutputBuffer(rendered, templates, output, changeTracking, rootAttrs = {}) {
-    console.log(`[LivePortal Stream Debug] toOutputBuffer called - rendered keys: ${Object.keys(rendered)}, has DYNAMICS: ${!!rendered[DYNAMICS]}, has KEYED: ${!!rendered[KEYED]}, has STREAM: ${!!rendered[STREAM]}`);
     if (rendered[DYNAMICS]) {
-      console.log(`[LivePortal Stream Debug] Calling comprehensionToBuffer (DYNAMICS path)`);
       return this.comprehensionToBuffer(rendered, templates, output);
     }
     if (rendered[KEYED]) {
-      console.log(`[LivePortal Stream Debug] Calling comprehensionToBuffer (KEYED path - LiveView 1.1)`);
       return this.comprehensionToBufferKeyed(rendered, templates, output);
     }
     let { [STATIC]: statics } = rendered;
@@ -2680,50 +2677,34 @@ var Rendered = class {
   comprehensionToBuffer(rendered, templates, output) {
     let { [DYNAMICS]: dynamics, [STATIC]: statics, [STREAM]: stream } = rendered;
     let [_ref, _inserts, deleteIds, reset] = stream || [null, {}, [], null];
-    console.log(`[LivePortal Stream Debug] Processing stream - dynamics length: ${dynamics?.length || 0}, stream:`, !!stream);
     statics = this.templateStatic(statics, templates);
-    console.log(`[LivePortal Stream Debug] After templateStatic - statics type: ${typeof statics}, is array: ${Array.isArray(statics)}`);
     let compTemplates = templates || rendered[TEMPLATES];
     for (let d = 0; d < dynamics.length; d++) {
       let dynamic = dynamics[d];
-      if (statics) {
-        if (Array.isArray(statics) && statics.length > 0) {
-          output.buffer += statics[0];
-          for (let i = 1; i < statics.length; i++) {
-            let changeTracking = false;
-            this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking);
-            output.buffer += statics[i];
-          }
-        } else if (typeof statics === "number") {
-          console.warn(`[LivePortal Stream Debug] statics is numeric (${statics}) in stream - this may affect stream rendering`);
+      if (statics && Array.isArray(statics) && statics.length > 0) {
+        output.buffer += statics[0];
+        for (let i = 1; i < statics.length; i++) {
+          let changeTracking = false;
+          this.dynamicToBuffer(dynamic[i - 1], compTemplates, output, changeTracking);
+          output.buffer += statics[i];
         }
       }
     }
     if (stream !== void 0 && (rendered[DYNAMICS].length > 0 || deleteIds.length > 0 || reset)) {
-      console.log(`[LivePortal Stream Debug] Adding stream to output - deleteIds: ${deleteIds.length}, reset: ${!!reset}`);
       delete rendered[STREAM];
       rendered[DYNAMICS] = [];
       output.streams.add(stream);
-      console.log(`[LivePortal Stream Debug] Stream added - total streams: ${output.streams.size}`);
-    } else if (stream !== void 0) {
-      console.log(`[LivePortal Stream Debug] Stream NOT added - dynamics: ${rendered[DYNAMICS].length}, deleteIds: ${deleteIds.length}, reset: ${!!reset}`);
     }
   }
   comprehensionToBufferKeyed(rendered, templates, output) {
     let { [KEYED]: keyed, [STATIC]: statics, [STREAM]: stream } = rendered;
     let [_ref, _inserts, deleteIds, reset] = stream || [null, {}, [], null];
-    console.log(`[LivePortal Stream Debug] Processing LiveView 1.1 keyed stream - keyed:`, keyed, "stream:", !!stream);
-    console.log(`[LivePortal Stream Debug] Stream details:`, stream);
-    console.log(`[LivePortal Stream Debug] Buffer before processing:`, output.buffer.length);
     statics = this.templateStatic(statics, templates);
-    console.log(`[LivePortal Stream Debug] After templateStatic - statics type: ${typeof statics}, is array: ${Array.isArray(statics)}`);
     let compTemplates = templates || rendered[TEMPLATES];
     if (keyed && typeof keyed === "object") {
       Object.entries(keyed).forEach(([key, item]) => {
-        console.log(`[LivePortal Stream Debug] Processing keyed entry - key: ${key}, item type: ${typeof item}, is array: ${Array.isArray(item)}, item:`, item);
         if (key === "kc") return;
         if (Array.isArray(item)) {
-          console.log(`[LivePortal Stream Debug] Processing array item with ${item.length} dynamics`);
           if (statics && Array.isArray(statics) && statics.length > 0) {
             output.buffer += statics[0];
             for (let i = 1; i < statics.length; i++) {
@@ -2735,7 +2716,6 @@ var Rendered = class {
             }
           }
         } else if (typeof item === "object" && item !== null) {
-          console.log(`[LivePortal Stream Debug] Processing object item - keys: ${Object.keys(item)}`);
           if (statics && Array.isArray(statics) && statics.length > 0) {
             output.buffer += statics[0];
             for (let i = 1; i < statics.length; i++) {
@@ -2750,15 +2730,10 @@ var Rendered = class {
         }
       });
     }
-    console.log(`[LivePortal Stream Debug] Buffer after processing:`, output.buffer.length);
     if (stream !== void 0 && (Object.keys(keyed || {}).length > 0 || deleteIds.length > 0 || reset)) {
-      console.log(`[LivePortal Stream Debug] Adding keyed stream to output - keyed keys: ${Object.keys(keyed || {})}, deleteIds: ${deleteIds.length}, reset: ${!!reset}`);
       delete rendered[STREAM];
       rendered[KEYED] = {};
       output.streams.add(stream);
-      console.log(`[LivePortal Stream Debug] Keyed stream added - total streams: ${output.streams.size}`);
-    } else if (stream !== void 0) {
-      console.log(`[LivePortal Stream Debug] Keyed stream NOT added - keyed: ${Object.keys(keyed || {}).length}, deleteIds: ${deleteIds.length}, reset: ${!!reset}`);
     }
   }
   dynamicToBuffer(rendered, templates, output, changeTracking) {
@@ -3929,25 +3904,12 @@ var View = class _View {
     });
   }
   update(diff, events) {
-    console.log(`[LivePortal Stream Debug] Update called - diff keys: ${Object.keys(diff)}, events: ${events?.length || 0}`);
-    console.log(`[LivePortal Stream Debug] Full diff:`, diff);
-    console.log(`[LivePortal Stream Debug] Diff structure analysis:`);
-    Object.keys(diff).forEach((key) => {
-      console.log(`[LivePortal Stream Debug]   Key "${key}":`, typeof diff[key], diff[key]);
-      if (typeof diff[key] === "object" && diff[key] !== null) {
-        console.log(`[LivePortal Stream Debug]     Object keys:`, Object.keys(diff[key]));
-      }
-    });
     if (this.isJoinPending() || this.liveSocket.hasPendingLink() && this.root.isMain()) {
-      console.log(`[LivePortal Stream Debug] Update deferred - join pending or has pending link`);
       return this.pendingDiffs.push({ diff, events });
     }
-    console.log(`[LivePortal Stream Debug] Before mergeDiff - rendered structure:`, this.rendered.get());
     this.rendered.mergeDiff(diff);
-    console.log(`[LivePortal Stream Debug] After mergeDiff - rendered structure:`, this.rendered.get());
     let phxChildrenAdded = false;
     if (this.rendered.isComponentOnlyDiff(diff)) {
-      console.log(`[LivePortal Stream Debug] Component-only diff detected`);
       this.liveSocket.time("component patch complete", () => {
         let parentCids = dom_default.findExistingParentCIDs(this.el, this.rendered.componentCIDs(diff));
         parentCids.forEach((parentCID) => {
@@ -3957,10 +3919,8 @@ var View = class _View {
         });
       });
     } else if (!isEmpty(diff)) {
-      console.log(`[LivePortal Stream Debug] Full patch diff detected`);
       this.liveSocket.time("full patch complete", () => {
         let [html, streams] = this.renderContainer(diff, "update");
-        console.log(`[LivePortal Stream Debug] After renderContainer - HTML length: ${html.length}, streams: ${streams.size}`);
         let patch = new DOMPatch(this, this.el, this.id, html, streams, null);
         phxChildrenAdded = this.performPatch(patch, true);
       });
