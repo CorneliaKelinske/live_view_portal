@@ -5342,8 +5342,16 @@ var View = class _View {
       let tag = this.el.tagName;
       let cids = diff ? this.rendered.componentCIDs(diff) : null;
       console.log(`[LivePortal Debug] Rendering - tag: ${tag}, cids:`, cids);
-      let [html, streams] = this.rendered.toString(cids);
-      console.log(`[LivePortal Debug] Rendered HTML length: ${(html == null ? void 0 : html.length) || 0}, streams:`, (streams == null ? void 0 : streams.size) || 0);
+      console.log(`[LivePortal Debug] About to call this.rendered.toString() with:`, this.rendered);
+      let html, streams;
+      try {
+        [html, streams] = this.rendered.toString(cids);
+        console.log(`[LivePortal Debug] toString() returned - HTML length: ${(html == null ? void 0 : html.length) || 0}, HTML preview:`, html == null ? void 0 : html.substring(0, 200));
+        console.log(`[LivePortal Debug] toString() returned - streams:`, (streams == null ? void 0 : streams.size) || 0);
+      } catch (error) {
+        console.error(`[LivePortal Debug] ERROR in toString():`, error);
+        throw error;
+      }
       return [`<${tag}>${html}</${tag}>`, streams];
     });
   }
