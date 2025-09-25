@@ -69,8 +69,78 @@ templateStatic(part, templates){
 - Custom `domRoot` modifications for portal functionality
 - Stream updates processed through `comprehensionToBuffer()`
 
+### Phase 4: Intermittent Style Attribute Rendering Bug 🔍 IN PROGRESS
+**Problem**: Flow Sentiment card (and potentially other cards) intermittently renders with style attribute values appearing as plain text content instead of being applied as CSS.
+
+**Symptoms**:
+- Works correctly most of the time
+- Intermittently breaks, showing raw CSS values as text: `width: 84.28909999999999%; background-color: #ef4444`
+- Element also shows class names as text content (e.g., "flex")
+- Only affects components with dynamic style attributes in `:for` loops
+
+**Investigation Process**:
+
+1. **Initial Hypothesis** (INCORRECT): Morphdom's `morphAttrs` function doesn't escape attribute values
+   - Checked both `live_view_portal` and official LiveView - both have same issue
+   - Not the root cause since official LiveView doesn't have this problem
+
+2. **Second Hypothesis** (INCORRECT): Shadow DOM context affects HTML parsing
+   - Added debug logging to check HTML strings before morphdom processes them
+   - Attempted to pre-parse HTML with document.createElement('template')
+   - Still didn't address the actual issue
+
+3. **Breakthrough Discovery** (CORRECT): Server generates malformed HTML with `<td>` tags
+   - Debug output revealed: `<td class="Bearish">width: 84.28...; background-color: #ef4444</td>`
+   - Browser HTML parser strips `<td>` tags when they appear outside a `<table>` context
+   - This causes the content to become text nodes instead of attributes
+   - The `<td>` tag should never be there - it's a **server-side rendering bug**
+
+**Root Cause Found**:
+The HTML string passed to morphdom contains:
+```html
+<td class="Bearish">
+  width: 84.28909999999999%; background-color: #ef4444
+</td>
+```
+
+Instead of the expected:
+```html
+<div class="h-2 rounded-full transition-all duration-300"
+     style="width: 84.28909999999999%; background-color: #ef4444">
+</div>
+```
+
+**Key Findings**:
+- The issue is NOT in morphdom or the JavaScript layer
+- The issue is NOT in the `progress_bar_visualization` component (which correctly generates `<div>` elements)
+- The malformed HTML is being generated **on the server side** during template rendering
+- The class "Bearish" is appearing in the HTML but is not present in the component code we've examined
+- This suggests there's another template or conditional rendering path that generates table markup
+
+**Next Steps** (WHEN RESUMING):
+1. Search codebase for "Bearish" to find where `<td class="Bearish">` is being generated
+   ```bash
+   grep -r "Bearish" lib/cfx_web/live/portals/ --include="*.ex" --include="*.heex"
+   ```
+2. Examine `feed_table.html.heex` template to see how aggregate cards are rendered
+3. Look for any conditional logic that might render table cells vs divs
+4. Check if there's template caching or compilation issue causing wrong template to be used
+
+**Files Modified for Debugging**:
+- `/assets/phoenix_live_view/js/phoenix_live_view/dom_patch.js` - Added comprehensive debug logging that:
+  - Captures last 10 HTML strings passed to morphdom
+  - Detects when style values appear as text content in DOM
+  - Logs the exact HTML string that caused the issue
+  - **Debug logging can be removed after fix is implemented**
+
 ## Current Status
-**Next Steps**: Test with debug logging to identify where stream data is lost in the update pipeline.
+**Active Issue**: Investigating server-side template rendering bug that generates `<td>` elements instead of `<div>` elements for Flow Sentiment card's progress bar visualization.
+
+**Next Steps When Resuming**:
+1. Find where "Bearish" class and `<td>` tags are being generated in templates
+2. Identify why table markup is intermittently used instead of div markup
+3. Fix the template to consistently use proper HTML structure
+4. Remove debug logging from `dom_patch.js` once issue is resolved
 
 ## Commands to Remember
 ```bash
