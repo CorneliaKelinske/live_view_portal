@@ -12,7 +12,7 @@ erl_crash.dump
 # js
 
 /assets/node_modules
-/assets/js/dist/**
+# /assets/js/dist/** - commented out because dist files are needed for npm packages
 node_modules
 coverage
 
