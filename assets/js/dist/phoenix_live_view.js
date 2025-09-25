@@ -2611,7 +2611,7 @@ var Rendered = class {
   }
   templateStatic(part, templates) {
     if (typeof part === "number") {
-      return templates && templates[part];
+      return templates ? templates[part] : part;
     } else {
       return part;
     }
