@@ -3,7 +3,7 @@ defmodule LiveViewPortal.MixProject do
 
   @source_url "https://github.com/doofinder/live_view_portal"
   # The version is the same as the one in package.json
-  @version "0.1.5-lv1.0.2"
+  @version "0.1.5-lv1.1.0"
 
   def project do
     [
@@ -39,7 +39,7 @@ defmodule LiveViewPortal.MixProject do
       {:phoenix_ecto, "~> 4.5"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "== 1.0.2"},
+      {:phoenix_live_view, "~> 1.1"},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:postgrex, ">= 0.0.0"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev}

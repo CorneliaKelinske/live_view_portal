@@ -281,7 +281,7 @@ export default class Rendered {
 
   templateStatic(part, templates){
     if(typeof (part) === "number"){
-      return templates[part]
+      return templates && templates[part]
     } else {
       return part
     }
