@@ -407,6 +407,7 @@ export default class Rendered {
     let [_ref, _inserts, deleteIds, reset] = stream || [null, {}, [], null]
     console.log(`[LivePortal Stream Debug] Processing LiveView 1.1 keyed stream - keyed:`, keyed, 'stream:', !!stream)
     console.log(`[LivePortal Stream Debug] Stream details:`, stream)
+    console.log(`[LivePortal Stream Debug] Buffer before processing:`, output.buffer.length)
 
     statics = this.templateStatic(statics, templates)
     console.log(`[LivePortal Stream Debug] After templateStatic - statics type: ${typeof statics}, is array: ${Array.isArray(statics)}`)
@@ -415,25 +416,46 @@ export default class Rendered {
 
     // Process keyed items (LiveView 1.1 structure)
     if(keyed && typeof keyed === 'object'){
-      Object.entries(keyed).forEach(([key, items]) => {
-        console.log(`[LivePortal Stream Debug] Processing keyed entry - key: ${key}, items:`, items)
-        if(Array.isArray(items)){
-          items.forEach((item, index) => {
-            console.log(`[LivePortal Stream Debug] Processing keyed item ${index}:`, item)
-            if(statics && Array.isArray(statics) && statics.length > 0){
-              output.buffer += statics[0]
-              for(let i = 1; i < statics.length; i++){
-                let changeTracking = false
-                if(item && item[i - 1] !== undefined){
-                  this.dynamicToBuffer(item[i - 1], compTemplates, output, changeTracking)
-                }
-                output.buffer += statics[i]
+      Object.entries(keyed).forEach(([key, item]) => {
+        console.log(`[LivePortal Stream Debug] Processing keyed entry - key: ${key}, item type: ${typeof item}, is array: ${Array.isArray(item)}, item:`, item)
+
+        // Skip the "kc" (keyed count) entry
+        if(key === 'kc') return
+
+        // Handle both array and object structures
+        if(Array.isArray(item)){
+          // Item is an array of dynamics
+          console.log(`[LivePortal Stream Debug] Processing array item with ${item.length} dynamics`)
+          if(statics && Array.isArray(statics) && statics.length > 0){
+            output.buffer += statics[0]
+            for(let i = 1; i < statics.length; i++){
+              let changeTracking = false
+              if(item[i - 1] !== undefined){
+                this.dynamicToBuffer(item[i - 1], compTemplates, output, changeTracking)
               }
+              output.buffer += statics[i]
             }
-          })
+          }
+        } else if(typeof item === 'object' && item !== null){
+          // Item is an object - treat it as a single dynamic structure
+          console.log(`[LivePortal Stream Debug] Processing object item - keys: ${Object.keys(item)}`)
+          if(statics && Array.isArray(statics) && statics.length > 0){
+            output.buffer += statics[0]
+            for(let i = 1; i < statics.length; i++){
+              let changeTracking = false
+              // For objects, try to access the dynamic by index or use the whole object
+              let dynamicValue = item[i - 1] !== undefined ? item[i - 1] : (i === 1 ? item : undefined)
+              if(dynamicValue !== undefined){
+                this.dynamicToBuffer(dynamicValue, compTemplates, output, changeTracking)
+              }
+              output.buffer += statics[i]
+            }
+          }
         }
       })
     }
+
+    console.log(`[LivePortal Stream Debug] Buffer after processing:`, output.buffer.length)
 
     if(stream !== undefined && (Object.keys(keyed || {}).length > 0 || deleteIds.length > 0 || reset)){
       console.log(`[LivePortal Stream Debug] Adding keyed stream to output - keyed keys: ${Object.keys(keyed || {})}, deleteIds: ${deleteIds.length}, reset: ${!!reset}`)
