@@ -2610,8 +2610,21 @@ var Rendered = class {
     return !!diff[STATIC];
   }
   templateStatic(part, templates) {
+    console.log(`[LivePortal Debug] templateStatic called - part:`, part, "templates:", templates, "this.rendered:", Object.keys(this.rendered));
     if (typeof part === "number") {
-      return templates ? templates[part] : part;
+      if (templates && templates[part] !== void 0) {
+        console.log(`[LivePortal Debug] Using templates[${part}]:`, templates[part]);
+        return templates[part];
+      } else {
+        console.log(`[LivePortal Debug] templates[${part}] not found, checking this.rendered.p`);
+        const staticTemplates = this.rendered.p;
+        if (staticTemplates && staticTemplates[part] !== void 0) {
+          console.log(`[LivePortal Debug] Found in rendered.p[${part}]:`, staticTemplates[part]);
+          return staticTemplates[part];
+        }
+        console.log(`[LivePortal Debug] Template ${part} not resolved, returning as-is`);
+        return part;
+      }
     } else {
       return part;
     }
@@ -2644,11 +2657,15 @@ var Rendered = class {
       rendered.newRender = true;
       rendered.magicId = this.nextMagicID();
     }
-    if (statics && statics.length > 0) {
-      output.buffer += statics[0];
-      for (let i = 1; i < statics.length; i++) {
-        this.dynamicToBuffer(rendered[i - 1], templates, output, changeTracking);
-        output.buffer += statics[i];
+    if (statics) {
+      if (Array.isArray(statics) && statics.length > 0) {
+        output.buffer += statics[0];
+        for (let i = 1; i < statics.length; i++) {
+          this.dynamicToBuffer(rendered[i - 1], templates, output, changeTracking);
+          output.buffer += statics[i];
+        }
+      } else if (typeof statics === "number") {
+        console.warn(`[LivePortal Debug] statics is a number (${statics}) - this may indicate unresolved template reference`);
       }
     }
     if (isRoot) {
