@@ -839,7 +839,10 @@ export default class LiveSocket {
   }
 
   dispatchEvent(event, payload = {}){
-    DOM.dispatchEvent(window, `phx:${event}`, {detail: payload})
+    // lvp:comment-next-line
+    // DOM.dispatchEvent(window, `phx:${event}`, {detail: payload})
+    // lvp:add-next-line
+    DOM.dispatchEvent(this.domRoot, `phx:${event}`, {detail: payload})
   }
 
   dispatchEvents(events){
