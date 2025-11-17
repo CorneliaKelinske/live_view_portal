@@ -18,3 +18,6 @@ coverage
 
 /assets/meta.json
 /priv/static/live_view_portal.*
+
+CLAUDE.md
+SHADOW_DOM_MIGRATION_STATUS.md
