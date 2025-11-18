@@ -296,14 +296,20 @@ export default class ViewHook {
 
   handleEvent(event, callback){
     let callbackRef = (customEvent, bypass) => bypass ? event : callback(customEvent.detail)
-    window.addEventListener(`phx:${event}`, callbackRef)
+    // lvp:comment-next-line
+    // window.addEventListener(`phx:${event}`, callbackRef)
+    // lvp:add-next-line
+    this.__view().domRoot.addEventListener(`phx:${event}`, callbackRef)
     this.__listeners.add(callbackRef)
     return callbackRef
   }
 
   removeHandleEvent(callbackRef){
     let event = callbackRef(null, true)
-    window.removeEventListener(`phx:${event}`, callbackRef)
+    // lvp:comment-next-line
+    // window.removeEventListener(`phx:${event}`, callbackRef)
+    // lvp:add-next-line
+    this.__view().domRoot.removeEventListener(`phx:${event}`, callbackRef)
     this.__listeners.delete(callbackRef)
   }
 
