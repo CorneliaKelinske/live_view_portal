@@ -15,7 +15,7 @@
     "README.md",
     "LICENSE.md",
     "package.json",
-    "assets/js/dist/live_view_portal.js"
+    "assets/js/dist/"
   ],
   "author": "Doofinder",
   "contributors": [
