@@ -12,7 +12,7 @@ erl_crash.dump
 # js
 
 /assets/node_modules
-/assets/js/dist/**
+# /assets/js/dist/** - Commented out to allow built files in git for package consumption
 node_modules
 coverage
 
