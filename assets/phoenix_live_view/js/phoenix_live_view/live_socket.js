@@ -28,6 +28,7 @@ import {
   PHX_REF_SRC,
   PHX_RELOAD_STATUS,
   PHX_RUNTIME_HOOK,
+  PHX_DROP_TARGET_ACTIVE_CLASS,
 } from "./constants";
 
 import {
@@ -37,6 +38,7 @@ import {
   debug,
   maybe,
   logError,
+  eventContainsFiles,
 } from "./utils";
 
 import Browser from "./browser";
@@ -234,7 +236,7 @@ export default class LiveSocket {
   }
 
   /**
-   * Returns an object with methods to manipluate the DOM and execute JavaScript.
+   * Returns an object with methods to manipulate the DOM and execute JavaScript.
    * The applied changes integrate with server DOM patching.
    *
    * @returns {import("./js_commands").LiveSocketJSCommands}
@@ -577,6 +579,11 @@ export default class LiveSocket {
       // in that case we DO NOT want to fallback to the main element
       view = this.getViewByEl(viewEl);
     } else {
+      if (!childEl.isConnected) {
+        // if the element is not part of the DOM any more
+        // there's no owner and we should not do fall back
+        return null;
+      }
       // lvp:comment-next-line
       // view = this.main;
       // lvp:add-next-line
@@ -721,14 +728,55 @@ export default class LiveSocket {
       },
     );
     this.on("dragover", (e) => e.preventDefault());
+    this.on("dragenter", (e) => {
+      const dropzone = closestPhxBinding(
+        e.target,
+        this.binding(PHX_DROP_TARGET),
+      );
+
+      if (!dropzone || !(dropzone instanceof HTMLElement)) {
+        return;
+      }
+
+      if (eventContainsFiles(e)) {
+        this.js().addClass(dropzone, PHX_DROP_TARGET_ACTIVE_CLASS);
+      }
+    });
+    this.on("dragleave", (e) => {
+      const dropzone = closestPhxBinding(
+        e.target,
+        this.binding(PHX_DROP_TARGET),
+      );
+
+      if (!dropzone || !(dropzone instanceof HTMLElement)) {
+        return;
+      }
+
+      // Avoid add/remove jitter in the case that we drag into a new child and that child would
+      // resolve their closest drop target to the current dropzone element
+      const rect = dropzone.getBoundingClientRect();
+      if (
+        e.clientX <= rect.left ||
+        e.clientX >= rect.right ||
+        e.clientY <= rect.top ||
+        e.clientY >= rect.bottom
+      ) {
+        this.js().removeClass(dropzone, PHX_DROP_TARGET_ACTIVE_CLASS);
+      }
+    });
     this.on("drop", (e) => {
       e.preventDefault();
-      const dropTargetId = maybe(
-        closestPhxBinding(e.target, this.binding(PHX_DROP_TARGET)),
-        (trueTarget) => {
-          return trueTarget.getAttribute(this.binding(PHX_DROP_TARGET));
-        },
+
+      const dropzone = closestPhxBinding(
+        e.target,
+        this.binding(PHX_DROP_TARGET),
       );
+      if (!dropzone || !(dropzone instanceof HTMLElement)) {
+        return;
+      }
+      this.js().removeClass(dropzone, PHX_DROP_TARGET_ACTIVE_CLASS);
+
+      const dropTargetId = dropzone.getAttribute(this.binding(PHX_DROP_TARGET));
       const dropTarget = dropTargetId && document.getElementById(dropTargetId);
       const files = Array.from(e.dataTransfer.files || []);
       if (
@@ -890,7 +938,17 @@ export default class LiveSocket {
     // DOM.all(document, `[${phxClickAway}]`, (el) => {
     // lvp:add-next-line
     DOM.all(this.domRoot, `[${phxClickAway}]`, (el) => {
-      if (!(el.isSameNode(clickStartedAt) || el.contains(clickStartedAt))) {
+      if (
+        !(
+          el.isSameNode(clickStartedAt) ||
+          el.contains(clickStartedAt) ||
+          // When clicking a link with custom method,
+          // phoenix_html triggers a click on a submit button
+          // of a hidden form appended to the body. For such cases
+          // where the clicked target is hidden, we skip click-away.
+          !JS.isVisible(clickStartedAt)
+        )
+      ) {
         this.withinOwners(el, (view) => {
           const phxEvent = el.getAttribute(phxClickAway);
           if (JS.isVisible(el) && JS.isInViewport(el)) {
